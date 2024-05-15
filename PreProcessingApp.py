@@ -18,7 +18,7 @@ import pymorphy2_dicts_uk
 
 class Language(Enum):
     English_E = 1
-    # Russian_R = 2
+    Russian_R = 2
     Ukrainian_U = 3
 
 
@@ -77,7 +77,8 @@ class PreProcessApp(Tk):
         self.language_mode_lbl = Label(self, text="Select language:")
         self.language_mode_lbl.grid(column=0, row=3, padx=5, pady=5, sticky=W)
         self.language_mode_combo = Combobox(self)
-        self.language_mode_combo['values'] = (Language.English_E, Language.Russian_R, Language.Ukrainian_U)
+        # self.language_mode_combo['values'] = (Language.English_E, Language.Russian_R, Language.Ukrainian_U)
+        self.language_mode_combo['values'] = (Language.English_E, Language.Ukrainian_U)
         self.language_mode_combo.set(Language.English_E)
         self.language_mode_combo.grid(column=1, row=3, padx=5, pady=5, sticky=W + E)
 
