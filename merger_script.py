@@ -3,16 +3,16 @@ from tkinter import Tk, Button, Label, Frame, LEFT
 
 
 def preprocessing():
-    os.system(r"PreProcessingApp.exe")  # for compiled .exe
-    # os.system(r"python PreProcessingApp.py")  # for manual script
+    # os.system(r"PreProcessingApp.exe")  # for compiled .exe
+    os.system(r"python PreProcessingApp.py")  # for manual script
 
 def calculate_corpus():
-    os.system(r"CalculateCorpusData.exe")  # for compiled .exe
-    # os.system(r"python CalculateCorpusData.py")  # for manual script
+    # os.system(r"CalculateCorpusData.exe")  # for compiled .exe
+    os.system(r"python CalculateCorpusData.py")  # for manual script
 
 def calculate_keyness():
-    os.system(r"CalculateKeynessRelative_AddDictTextToIndex.exe")  # for compiled .exe
-    # os.system(r"python CalculateKeynessRelative_AddDictTextToIndex.py")  # for manual script
+    # os.system(r"CalculateKeynessRelative_AddDictTextToIndex.exe")  # for compiled .exe
+    os.system(r"python CalculateKeynessRelative_AddDictTextToIndex.py")  # for manual script
 
 
 

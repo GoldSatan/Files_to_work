@@ -18,7 +18,7 @@ import pymorphy2_dicts_uk
 
 class Language(Enum):
     English_E = 1
-    Russian_R = 2
+    # Russian_R = 2
     Ukrainian_U = 3
 
 
