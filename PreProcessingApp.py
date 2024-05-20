@@ -14,6 +14,7 @@ from collections import Counter
 import pymorphy2
 import pymorphy2_dicts_ru
 import pymorphy2_dicts_uk
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Language(Enum):
@@ -137,6 +138,8 @@ class PreProcessApp(Tk):
         self.status_var.set(
             'Select file with stop words, source folder, target folder, parameters and press "Do text pre processing"')
 
+        self.morph = {}
+
         for i in range(1, 3):
             self.columnconfigure(i, weight=1)
         for j in range(1, 12):
@@ -220,7 +223,7 @@ class PreProcessApp(Tk):
                 stemmer = PorterStemmer()
                 lemmatizer = WordNetLemmatizer()
             else:
-                morph = pymorphy2.MorphAnalyzer(path=os.getcwd() + '\\pymorphy2_dicts_uk\\data', lang='uk') \
+                self.morph = pymorphy2.MorphAnalyzer(path=os.getcwd() + '\\pymorphy2_dicts_uk\\data', lang='uk') \
                     if langMode == Language.Ukrainian_U \
                     else pymorphy2.MorphAnalyzer(path=os.getcwd() + '\\pymorphy2_dicts_ru\\data', lang='ru')
         except PermissionError:
@@ -246,71 +249,85 @@ class PreProcessApp(Tk):
                     lower_case_text = text.lower()
                     re_split = re.split(r"[.!?]+", lower_case_text, 0, re.IGNORECASE)
                     output_list = []
-                    for sentence in re_split:
-                        cleared_sentence = re.sub(only_word_symbols_pattern, '', sentence, 0, re.IGNORECASE)
-                        if cipherMode == CipherMode.Remove_D:
-                            cleared_sentence = re.sub(r"\d", '', cleared_sentence, 0, re.IGNORECASE)
-                        if cleared_sentence:
-                            single_words = cleared_sentence.split()
-                            words = single_words
-                            if processingMode == ProcessingMode.Lemmatizer_L:
-                                words = []
-                                if langMode == Language.English_E:
-                                    tagged_words = nltk.pos_tag(single_words)
-                                    for item in tagged_words:
-                                        word = item[0]
-                                        if word:
-                                            pos_tag = self.get_wordnet_pos(item[1])
-                                            lemma = lemmatizer.lemmatize(word, pos_tag)
-                                            words.append(lemma)
-                                else:
-                                    for item in single_words:
-                                        p = morph.parse(item)[0]
-                                        words.append(p.normal_form)
-                            for word in words:
-                                stripped_word = re.sub(r"[\'\-]", '', word)
-                                if not stripped_word:
-                                    continue
-                                if stopWordMode != StopWordMode.AsIs_A and stripped_word in self.stop_list:
-                                    if stopWordMode == StopWordMode.Remove_D:
-                                        continue
-                                    if stopWordMode == StopWordMode.Replace_R:
-                                        output_list.append(stopWordReplacer)
-                                else:
-                                    out_word = stripped_word
-                                    if processingMode == ProcessingMode.Stemmer_S:
-                                        out_word = stemmer.stem(stripped_word)
-                                    if processingMode == ProcessingMode.Lemmatizer_L:
-                                        out_word = stripped_word
-                                    output_list.append(out_word)
-                                if len(output_list) > 0 and output_list[-1] != ' ':
-                                    output_list.append(' ')
-                            if sentenceTerminatorMode == SentenceTerminatorMode.Replace_R:
-                                if len(output_list) > 1 and output_list[-1] != sentenceTerminatorReplacer and \
-                                        output_list[-2] != sentenceTerminatorReplacer:
-                                    output_list.append(sentenceTerminatorReplacer)
-                                if len(output_list) > 0 and output_list[-1] != ' ':
-                                    output_list.append(' ')
+                    with ThreadPoolExecutor() as executor:
+                        futures = []
+                        for sentence in re_split:
+                            future = executor.submit(self.process_sentence, sentence, only_word_symbols_pattern, cipherMode, processingMode, langMode, lemmatizer, stopWordMode, output_list, stopWordReplacer, sentenceTerminatorMode, sentenceTerminatorReplacer, stemmer)
+                            futures.append(future)
+                        
+                        for future in futures:
+                            future.result()
+                            
+                            
+                       
                     output_text = ''.join(output_list)
                     new_file_path = os.path.join(root.replace(self.selected_in_folder, self.selected_out_folder, 1),
                                                  name)
                     new_file = open(new_file_path, 'w', encoding='utf-8')
                     new_file.write(output_text)
                     new_file.close()
-                # except UnicodeDecodeError as ude:
-                #    print("UnicodeDecodeError: {0}".format(ude))
-                # except:
-                #    print("Unexpected error: ", sys.exc_info()[0])
                 processed += 1
                 processedPercent = int(round(processed / n * 100.0))
                 self.progress_var.set(processedPercent)
                 status = "Processed:" + str(processedPercent) + "%"
                 self.status_var.set(status)
                 self.bar.update()
+                
+                
+                
         finish_time = time.time()
         diff = finish_time - start_time
         self.status_var.set("Processing finished! Elapsed seconds: " + str(diff))
 
+    def process_sentence(self, sentence, only_word_symbols_pattern, cipherMode, processingMode, langMode, lemmatizer, stopWordMode, output_list, stopWordReplacer, sentenceTerminatorMode, sentenceTerminatorReplacer, stemmer):
+        cleared_sentence = re.sub(only_word_symbols_pattern, '', sentence, 0, re.IGNORECASE)
+        if cipherMode == CipherMode.Remove_D:
+            cleared_sentence = re.sub(r"\d", '', cleared_sentence, 0, re.IGNORECASE)
+        if cleared_sentence:
+            single_words = cleared_sentence.split()
+            words = single_words
+            if processingMode == ProcessingMode.Lemmatizer_L:
+                words = []
+                if langMode == Language.English_E:
+                    tagged_words = nltk.pos_tag(single_words)
+                    for item in tagged_words:
+                        word = item[0]
+                        if word:
+                            pos_tag = self.get_wordnet_pos(item[1])
+                            lemma = lemmatizer.lemmatize(word, pos_tag)
+                            words.append(lemma)
+                else:
+                    for item in single_words:
+                        p = self.morph.parse(item)[0]
+                        words.append(p.normal_form)
+            j = 1
+            for word in words:
+                j += 1
+                stripped_word = re.sub(r"[\'\-]", '', word)
+                if not stripped_word:
+                    continue
+                if stopWordMode != StopWordMode.AsIs_A and stripped_word in self.stop_list:
+                    if stopWordMode == StopWordMode.Remove_D:
+                        continue
+                    if stopWordMode == StopWordMode.Replace_R:
+                        output_list.append(stopWordReplacer)
+                else:
+                    out_word = stripped_word
+                    if processingMode == ProcessingMode.Stemmer_S:
+                        out_word = stemmer.stem(stripped_word)
+                    if processingMode == ProcessingMode.Lemmatizer_L:
+                        out_word = stripped_word
+                    output_list.append(out_word)
+                if len(output_list) > 0 and output_list[-1] != ' ':
+                    output_list.append(' ')
+            print("j = ", j)
+            if sentenceTerminatorMode == SentenceTerminatorMode.Replace_R:
+                if len(output_list) > 1 and output_list[-1] != sentenceTerminatorReplacer and \
+                        output_list[-2] != sentenceTerminatorReplacer:
+                    output_list.append(sentenceTerminatorReplacer)
+                if len(output_list) > 0 and output_list[-1] != ' ':
+                    output_list.append(' ')
+    
     def are_paths_valid(self, src_path, dest_path):
         next_level_folder = 'new_folder'
         src = str(os.path.join(src_path, next_level_folder))
